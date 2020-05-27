@@ -1,2 +1,2 @@
 # boilerplate
-NodeJs Boilerplate
+NodeJs ES6 boilerplate
