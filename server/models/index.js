@@ -31,18 +31,12 @@ fs.readdirSync(__dirname)
 db.models.sort((a, b) => db[a].serial - db[b].serial);
 
 db.Sequelize = Sequelize;
-db.sequelize = sequelize;
-
 // Association of relational models
 Object.keys(db).forEach((modelName) => {
   if ('associate' in db[modelName]) {
     db[modelName].associate(db);
   }
 });
-// db.tutorials = require('./tutorial.model.js')(sequelize, Sequelize);
-
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
 
 db.closeConnection = () => {
   sequelize.close();
