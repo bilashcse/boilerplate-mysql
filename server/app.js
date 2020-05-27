@@ -6,102 +6,93 @@ import path from 'path';
 import http from 'http';
 import { isCelebrate } from 'celebrate';
 
-const routes = require('./controllers/index');
-const configs = require('./configs/config');
-const db = require('./models');
-const { log } = require('./logger/index');
-const { parseError, formatResponse } = require('./utils/celebrateErrorHandler');
+import { parseError, formatResponse } from './utils/celebrateErrorHandler';
+import routes from './controllers/index';
+import configs from './configs/config';
+import db from './models';
+import { log } from './logger/index';
 
-function Server() {
-  const self = this;
-  const app = express();
-  app.disable('x-powered-by');
-  app.use(express.static(path.resolve(__dirname, '../public')));
+class Server {
+  constructor(port, ip, app) {
+    this.port = port;
+    this.ip = ip;
+    this.app = app;
+  }
 
-  const corsOptions = {
-    origin: configs.allowedOrigins,
-    // credentials: true,
-    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token'],
-    optionsSuccessStatus: 200,
-  };
+  defineMiddleware() {
+    this.app.disable('x-powered-by');
+    this.app.use(express.static(path.resolve(__dirname, '../public')));
 
-  app.use(cors(corsOptions));
-  app.use(bodyParser.json({ limit: '50mb' }));
-  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-  app.use((err, req, res, next) => {
-    if (isCelebrate(err)) {
-      const errors = parseError(err);
+    const corsOptions = {
+      origin: configs.allowedOrigins,
+      // credentials: true,
+      methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token'],
+      optionsSuccessStatus: 200,
+    };
 
-      // build main error message
-      const errorMessage = errors.map((e) => e.message).join(', ');
+    this.app.use(cors(corsOptions));
+    this.app.use(bodyParser.json({ limit: '50mb' }));
+    this.app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+    this.app.use((err, req, res, next) => {
+      if (isCelebrate(err)) {
+        const errors = parseError(err);
 
-      // retrieve validation failure source
-      // eslint-disable-next-line no-underscore-dangle
-      const { source } = err._meta;
+        // build main error message
+        const errorMessage = errors.map((e) => e.message).join(', ');
 
-      // format error response
-      // eslint-disable-next-line no-param-reassign
-      err = formatResponse(err, source, errorMessage, errors);
+        // retrieve validation failure source
+        // eslint-disable-next-line no-underscore-dangle
+        const { source } = err._meta;
 
-      const error = {
-        isError: true,
-        statusCode: 400,
-        error: 'Bad Request',
-        message: err.output.payload.message,
-        validation: err.output.payload.validation,
-      };
+        // format error response
+        // eslint-disable-next-line no-param-reassign
+        err = formatResponse(err, source, errorMessage, errors);
 
-      return res.status(400).send(error);
-    }
+        const error = {
+          isError: true,
+          statusCode: 400,
+          error: 'Bad Request',
+          message: err.output.payload.message,
+          validation: err.output.payload.validation,
+        };
 
-    // If this isn't a Celebrate error, send it to the next error handler
-    return next(err);
-  });
-
-  this.defineModels = async () => {
-    await db.sequelize.sync();
-  };
-  this.defineRoutes = () => {
-    routes(app);
-    app.options('*', (req, res) => {
-      res.status(200).end();
-    });
-  };
-
-  this.createDirectories = () => {
-    const tempDir = `${__dirname}/temp`;
-    if (!fs.existsSync(path.normalize(tempDir))) {
-      fs.mkdirSync(tempDir);
-    }
-  };
-
-  this.terminator = () => {
-    this.appServer.close((err) => {
-      if (err) {
-        log.error(err);
-        process.exit(1);
+        return res.status(400).send(error);
       }
 
-      process.exit(0);
+      // If this isn't a Celebrate error, send it to the next error handler
+      return next(err);
     });
+  }
 
-    log.warn('Node app has stopped');
-  };
+  // eslint-disable-next-line class-methods-use-this
+  async defineModels() {
+    await db.sequelize.sync();
+  }
 
-  this.terminationHandlers = () => {
-    process.on('exit', () => {
-      self.terminator();
+  defineRoutes() {
+    routes(this.app);
+    this.app.options('*', (req, res) => {
+      res.status(200).end();
     });
-  };
+  }
 
-  this.start = () => {
-    this.appServer = http.createServer(app).listen(configs.port, configs.ip);
-    log.info(`Server started successfully. Port: ${configs.port}`);
-  };
+  // eslint-disable-next-line class-methods-use-this
+  createDirectories() {
+    const tempDir = path.join(__dirname, '/temp');
+    if (!fs.existsSync(path.join(tempDir))) {
+      fs.mkdirSync(tempDir);
+    }
+  }
+
+  start() {
+    this.appServer = http.createServer(this.app).listen(this.port, this.ip);
+    log.info(`Server started successfully. Port: ${this.port}`);
+  }
 }
 
-const server = new Server();
+const server = new Server(configs.port, configs.ip, express());
+server.defineMiddleware();
 server.defineModels();
 server.defineRoutes();
 server.createDirectories();

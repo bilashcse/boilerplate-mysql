@@ -1,6 +1,6 @@
 module.exports = {
   name: 'cost-manager',
-  port: 3030,
+  port: 3040,
   allowedOrigins: [],
   mysql: {
     host: 'localhost',
