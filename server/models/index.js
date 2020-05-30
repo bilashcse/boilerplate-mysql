@@ -31,6 +31,7 @@ fs.readdirSync(__dirname)
 db.models.sort((a, b) => db[a].serial - db[b].serial);
 
 db.Sequelize = Sequelize;
+db.sequelize = sequelize;
 // Association of relational models
 Object.keys(db).forEach((modelName) => {
   if ('associate' in db[modelName]) {
